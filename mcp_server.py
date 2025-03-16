@@ -10,7 +10,7 @@ from mcp.server import FastMCP
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext
-from app.code_execution import interpreter, SANDBOX_DIR
+from app.code_execution import interpreter, bash_command, SANDBOX_DIR
 
 # Load environment variables
 load_dotenv()
@@ -282,6 +282,9 @@ async def code_interpreter(action: str, filename: str = None, content: str = Non
     This tool allows you to create, read, and execute code files in various programming languages
     within a secure sandbox environment.
     
+    All operations have a global timeout to prevent the tool from getting stuck.
+    If you encounter timeout issues, try breaking your task into smaller steps.
+    
     Args:
         action: The action to perform. Options include:
             - 'read': Read the contents of a file
@@ -297,6 +300,46 @@ async def code_interpreter(action: str, filename: str = None, content: str = Non
         A string with the result of the action
     """
     return await interpreter(action, filename, content, language, timeout)
+
+# Define the bash tool (imported from app.code_execution)
+@mcp.tool()
+async def bash_tool(command: str, timeout: int = 30, background: bool = False) -> str:
+    """
+    Execute a bash command in the sandbox directory.
+    
+    This tool allows running shell commands within the sandbox environment,
+    which is useful for starting web servers, running build processes, or other
+    shell operations. Commands are executed in the same sandbox directory as the code_interpreter.
+    
+    All operations have a global timeout to prevent the tool from getting stuck.
+    If you encounter timeout issues, try breaking your task into smaller steps.
+    
+    For web servers and long-running processes:
+    1. Set background=True to run the process in the background
+    2. The process will continue running even after the command returns
+    3. Output will be logged to a file in the sandbox directory
+    4. You can check the log file using code_interpreter with action="read"
+    5. To stop a background process, use the 'kill' command with the PID
+    
+    Examples:
+    - Start a Python web server: `bash_tool("python -m http.server 8000", background=True)`
+    - Run a Node.js app: `bash_tool("node app.js", background=True)`
+    - Check running processes: `bash_tool("ps aux | grep python")`
+    - List files: `bash_tool("ls -la")`
+    - Install packages: `bash_tool("pip install flask")`
+    - Check a log file: Use `code_interpreter(action="read", filename="bg_process_123456789.log")`
+    - Kill a process: `bash_tool("kill 1234")` where 1234 is the PID
+    
+    Args:
+        command: The bash command to execute
+        timeout: Maximum execution time in seconds (default: 30, only applies to foreground processes)
+        background: Whether to run the command in the background (default: False)
+            Set to True for long-running processes like web servers
+    
+    Returns:
+        A string with the command output or process information
+    """
+    return await bash_command(command, timeout, background)
 
 if __name__ == "__main__":
     # Run the server with stdio transport
