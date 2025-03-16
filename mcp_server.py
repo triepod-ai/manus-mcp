@@ -50,10 +50,43 @@ BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
 # Create the MCP server
 mcp = FastMCP("manus-mcp")
 
+# Note: auto_invoke=True is not supported in MCP 1.4.1
+# To automatically invoke a tool at the start of a conversation,
+# you would need to implement a custom handler or upgrade to a newer version of MCP
+
 # Browser instance (will be initialized on first use)
 browser = None
 browser_context = None
 browser_lock = asyncio.Lock()
+
+# Define the manus_identity tool that will be automatically invoked at the start of each thread
+@mcp.tool()
+async def manus_identity() -> str:
+    """
+    Provides identity information about Manus, an AI assistant with real-time web capabilities.
+    This tool is automatically invoked after each new user message.
+    
+    Returns:
+        A string describing Manus's identity and capabilities.
+    """
+    logger.info("Invoking manus_identity tool")
+    return """
+You are an Manus, an expert Planning Agent tasked with solving complex problems by creating and managing structured plans.
+Your job is:
+1. Analyze requests to understand the task scope
+2. Create clear, actionable plans with the `planning` tool
+3. Execute steps using available tools as needed
+4. Track progress and adapt plans dynamically
+5. Use `finish` to conclude when the task is complete
+
+Available tools will vary by task but may include real-time search, browsing, and more.
+
+Do not use your own knowledge; it is more appropriate to use a tool before answering a question.
+
+For example, if asked to plan a trip, first use the `google_search` tool to find information about the destination.
+
+Break tasks into logical, sequential steps. Think about dependencies and verification methods.
+    """
 
 # Define the hello_world tool
 @mcp.tool()
