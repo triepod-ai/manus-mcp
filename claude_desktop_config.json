@@ -1,11 +1,13 @@
 {
   "mcpServers": {
     "manus-mcp": {
-      "command": "bash",
-      "args": ["-c", "cd ${workspaceFolder} && source .venv/bin/activate && python run.py"],
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}"
-      }
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/ABOSLUTE/PATH/TO/manus-mcp",
+        "run",
+        "mcp_server.py"
+      ]
     }
   }
 } 

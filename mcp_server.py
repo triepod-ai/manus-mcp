@@ -1,11 +1,10 @@
 from typing import Any, Dict, List
-import logging
 import asyncio
+import logging
 import os
-from fastapi import FastAPI
-from mcp.server import FastMCP
-from googlesearch import search
 from dotenv import load_dotenv
+from googlesearch import search
+from mcp.server import FastMCP
 
 # Load environment variables
 load_dotenv()
@@ -18,17 +17,13 @@ logging.basicConfig(
 logger = logging.getLogger("manus-mcp")
 
 # Google Search configuration
-GOOGLE_SEARCH_USER_AGENT = os.getenv("GOOGLE_SEARCH_USER_AGENT", "Mozilla/5.0")
 GOOGLE_SEARCH_MAX_RESULTS = int(os.getenv("GOOGLE_SEARCH_MAX_RESULTS", "10"))
 
-# Create the FastAPI app
-app = FastAPI(title="Manus MCP Server")
-
 # Create the MCP server
-mcp_server = FastMCP(app=app, name="manus-mcp")
+mcp = FastMCP("manus-mcp")
 
 # Define the hello_world tool
-@mcp_server.tool()
+@mcp.tool()
 async def hello_world(name: str = "World") -> str:
     """
     Returns a friendly greeting message.
@@ -40,7 +35,7 @@ async def hello_world(name: str = "World") -> str:
     return f"Hello, {name}! Welcome to Manus MCP."
 
 # Define the google_search tool
-@mcp_server.tool()
+@mcp.tool()
 async def google_search(query: str, num_results: int = None) -> List[str]:
     """
     Perform a Google search and return a list of relevant links.
@@ -67,8 +62,7 @@ async def google_search(query: str, num_results: int = None) -> List[str]:
             None, 
             lambda: list(search(
                 query, 
-                num_results=num_results,
-                user_agent=GOOGLE_SEARCH_USER_AGENT
+                num_results=num_results
             ))
         )
         logger.info(f"Found {len(links)} results for query: {query}")
@@ -77,20 +71,6 @@ async def google_search(query: str, num_results: int = None) -> List[str]:
         logger.error(f"Error performing Google search: {e}")
         return [f"Error performing search: {str(e)}"]
 
-# Create a simple root endpoint for the API
-@app.get("/")
-async def root():
-    """Root endpoint that returns basic server information."""
-    return {
-        "name": "Manus MCP Server",
-        "version": "0.1.0",
-        "description": "An MCP server that can browse the web, perform search queries, and execute code.",
-        "capabilities": [
-            "hello_world",
-            "google_search"
-        ]
-    }
-
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host=os.getenv("MCP_HOST", "127.0.0.1"), port=int(os.getenv("MCP_PORT", "8000")), reload=True) 
+    # Run the server with stdio transport
+    mcp.run(transport='stdio') 

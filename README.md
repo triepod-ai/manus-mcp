@@ -11,6 +11,7 @@ A Model Context Protocol (MCP) server implementation that can browse the web, pe
 ## Current Features
 
 - Simple "hello_world" tool that returns a greeting message
+- "google_search" tool that performs Google searches and returns relevant links
 
 ## Getting Started
 
