@@ -7,58 +7,12 @@
 
 A Model Context Protocol (MCP) server implementation that can browse the web, perform search queries, and execute code.
 
-## Features (Planned)
-
-- Web browsing
-- Search queries
-- Code execution
-
 ## Current Features
 
-- Simple "hello_world" tool that returns a greeting message
 - "google_search" tool that performs Google searches and returns relevant links
 - "browse_web" tool that allows browsing websites, clicking elements, and extracting content
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
-
-### Installation
-
-#### Using Setup Script (Recommended)
-
-```bash
-./setup.sh
-```
-
-#### Manual Installation
-
-1. Clone the repository
-   ```bash
-   git clone https://github.com/yourusername/manus-mcp.git
-   cd manus-mcp
-   ```
-
-2. Create a virtual environment and install dependencies
-   ```bash
-   uv venv
-   source .venv/bin/activate
-   uv pip install -e .        # Install the project and its dependencies
-   ```
-
-3. Run the server
-   ```bash
-   # Make sure your virtual environment is activated
-   source .venv/bin/activate
-   ./run.py
-   # or
-   uvicorn app.main:app --reload
-   ```
-
-4. Visit `http://localhost:8000/docs` to see the API documentation
+- "code_interpreter" tool that allows reading, writing, and executing code in a sandbox environment
+- "bash_tool" tool that allows running shell commands in the sandbox directory
 
 ## Using with Claude for Desktop
 
@@ -109,17 +63,86 @@ Interacts with a web browser to navigate websites and extract information. Suppo
 - `scroll`: Scroll the page
 - `refresh`: Refresh the current page
 
-## API Documentation
+### code_interpreter
 
-The API follows the [Model Context Protocol (MCP) specification](https://modelcontextprotocol.io/).
+Allows reading, writing, and executing code files in a sandboxed environment. Supported actions:
+- `read`: Read the contents of a file
+- `write`: Write content to a file
+- `execute`: Execute a file or code snippet
+- `list`: List files in the sandbox
 
-## Development
+Supports multiple programming languages including Python, JavaScript (Node.js), Bash, Ruby, Perl, and R.
+
+### bash_tool
+
+Executes bash commands in the sandbox directory. Features:
+- Run commands in foreground or background mode
+- Start web servers and other long-running processes
+- Install packages and dependencies
+- Manage files and processes
+
+## Environment Variables
+
+The following environment variables can be configured:
+
+- `SANDBOX_DIR`: Path to the sandbox directory (default: `~/manus-sandbox`)
+- `GLOBAL_TIMEOUT`: Global timeout for all operations in seconds (default: 60)
+- `BROWSER_HEADLESS`: Whether to run the browser in headless mode (default: false)
+- `GOOGLE_SEARCH_MAX_RESULTS`: Maximum number of search results to return (default: 10)
+- `LOG_LEVEL`: Logging level (default: INFO)
+
+## Development Guide
+
+### Prerequisites
+
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
+
+### Installation
+
+#### Using Setup Script (Recommended)
+
+```bash
+./setup.sh
+```
+
+#### Manual Installation
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/manus-mcp.git
+   cd manus-mcp
+   ```
+
+2. Create a virtual environment and install dependencies
+   ```bash
+   uv venv
+   source .venv/bin/activate
+   uv pip install -e .        # Install the project and its dependencies
+   ```
+
+3. Run the server
+   ```bash
+   # Make sure your virtual environment is activated
+   source .venv/bin/activate
+   ./run.py
+   # or
+   uvicorn app.main:app --reload
+   ```
+
+4. Visit `http://localhost:8000/docs` to see the API documentation
+
+### Development Dependencies
 
 To install development dependencies:
 
 ```bash
 uv pip install -e ".[dev]"
 ```
+
+### API Documentation
+
+The API follows the [Model Context Protocol (MCP) specification](https://modelcontextprotocol.io/).
 
 ## License
 
