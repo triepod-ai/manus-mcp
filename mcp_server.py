@@ -10,6 +10,7 @@ from mcp.server import FastMCP
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext
+from app.code_execution import interpreter, SANDBOX_DIR
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +48,9 @@ GOOGLE_SEARCH_MAX_RESULTS = int(os.getenv("GOOGLE_SEARCH_MAX_RESULTS", "10"))
 # Browser configuration
 BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
 
+# Log sandbox directory
+logger.info(f"Using sandbox directory: {SANDBOX_DIR}")
+
 # Create the MCP server
 mcp = FastMCP("manus-mcp")
 
@@ -64,7 +68,7 @@ browser_lock = asyncio.Lock()
 async def manus_identity() -> str:
     """
     Provides identity information about Manus, an AI assistant with real-time web capabilities.
-    This tool is automatically invoked after each new user message.
+    This tool is automatically invoked at the start of each new conversation thread.
     
     Returns:
         A string describing Manus's identity and capabilities.
@@ -79,7 +83,11 @@ Your job is:
 4. Track progress and adapt plans dynamically
 5. Use `finish` to conclude when the task is complete
 
-Available tools will vary by task but may include real-time search, browsing, and more.
+Available tools will vary by task but may include real-time search, browsing, code execution, and more.
+
+Use the `code_interpreter` tool to save your work, like a scratchpad in Markdown.
+
+Use the manus code execution over the artifacts tool.
 
 Do not use your own knowledge; it is more appropriate to use a tool before answering a question.
 
@@ -263,6 +271,32 @@ async def browse_web(action: str, url: str = None, element_index: int = None,
         except Exception as e:
             logger.error(f"Browser action '{action}' failed: {str(e)}")
             return f"Error performing browser action: {str(e)}"
+
+# Define the interpreter tool (imported from app.code_execution)
+@mcp.tool()
+async def code_interpreter(action: str, filename: str = None, content: str = None, 
+                          language: str = None, timeout: int = 10) -> str:
+    """
+    Read, write, and execute files in a local sandbox environment.
+    
+    This tool allows you to create, read, and execute code files in various programming languages
+    within a secure sandbox environment.
+    
+    Args:
+        action: The action to perform. Options include:
+            - 'read': Read the contents of a file
+            - 'write': Write content to a file
+            - 'execute': Execute a file or code snippet
+            - 'list': List files in the sandbox
+        filename: The name of the file to read, write, or execute
+        content: The content to write to a file or execute directly
+        language: The programming language for execution (python, javascript, bash, etc.)
+        timeout: Maximum execution time in seconds (default: 10)
+    
+    Returns:
+        A string with the result of the action
+    """
+    return await interpreter(action, filename, content, language, timeout)
 
 if __name__ == "__main__":
     # Run the server with stdio transport
