@@ -47,6 +47,7 @@ GOOGLE_SEARCH_MAX_RESULTS = int(os.getenv("GOOGLE_SEARCH_MAX_RESULTS", "10"))
 
 # Browser configuration
 BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
+CHROME_INSTANCE_PATH = os.getenv("CHROME_INSTANCE_PATH", None)
 
 # Log sandbox directory
 logger.info(f"Using sandbox directory: {SANDBOX_DIR}")
@@ -68,7 +69,7 @@ browser_lock = asyncio.Lock()
 async def manus_identity() -> str:
     """
     Provides identity information about Manus, an AI assistant with real-time web capabilities.
-    This tool is automatically invoked at the start of each new conversation thread.
+    This tool is automatically invoked at the start of each new message.
     
     Returns:
         A string describing Manus's identity and capabilities.
@@ -87,13 +88,17 @@ Available tools will vary by task but may include real-time search, browsing, co
 
 Use the `code_interpreter` tool to save your work, like a scratchpad in Markdown.
 
-Use the manus code execution over the artifacts tool.
+Use the provided code_interpreter and bash_tool, and NOT the artifacts tool.
 
 Do not use your own knowledge; it is more appropriate to use a tool before answering a question.
 
 For example, if asked to plan a trip, first use the `google_search` tool to find information about the destination.
 
 Break tasks into logical, sequential steps. Think about dependencies and verification methods.
+
+Please make a plan before you start. Prefer to use tools rather than presenting the output in chat.
+
+DO NOT use the artifacts tool.
     """
 
 # Define the hello_world tool
@@ -116,6 +121,7 @@ async def google_search(query: str, num_results: int = None) -> List[str]:
     
     Use this tool when you need to find information on the web, get up-to-date data, 
     or research specific topics. The tool returns a list of URLs that match the search query.
+    The URLs can be viewed in the browser using the `browse_web` tool.
     
     Args:
         query: The search query to submit to Google.
@@ -151,10 +157,12 @@ async def ensure_browser_initialized():
     global browser, browser_context
     
     if browser is None:
-        logger.info(f"Initializing browser (headless: {BROWSER_HEADLESS})...")
-        browser = BrowserUseBrowser(BrowserConfig(
-            headless=BROWSER_HEADLESS
-        ))
+        logger.info(f"Initializing browser (headless: {BROWSER_HEADLESS}, chrome_instance_path: {CHROME_INSTANCE_PATH})...")
+        browser_config = BrowserConfig(
+            headless=BROWSER_HEADLESS,
+            chrome_instance_path=CHROME_INSTANCE_PATH
+        )
+        browser = BrowserUseBrowser(browser_config)
     
     if browser_context is None:
         logger.info("Creating new browser context...")
@@ -281,6 +289,8 @@ async def code_interpreter(action: str, filename: str = None, content: str = Non
     
     This tool allows you to create, read, and execute code files in various programming languages
     within a secure sandbox environment.
+
+    Keep all files and edits under 500 lines of code to avoid violating output length limits.
     
     All operations have a global timeout to prevent the tool from getting stuck.
     If you encounter timeout issues, try breaking your task into smaller steps.
