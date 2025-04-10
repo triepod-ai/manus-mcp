@@ -2,7 +2,6 @@
 
 <p align="center">
   <img src="meme.jpeg" alt="Manus MCP" width="50%">
-  <img src="meme.jpg" alt="Manus MCP" width="50%">
 </p>
 
 A Model Context Protocol (MCP) server implementation that can browse the web, perform search queries, and execute code.
