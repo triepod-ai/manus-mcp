@@ -8,7 +8,7 @@
         "--",
         "bash",
         "-c",
-        "source /mnt/l/ToolNexusMCP_plugins/manus-mcp/.venv/bin/activate && python3 /mnt/l/ToolNexusMCP_plugins/manus-mcp/mcp_server.py"
+        "source /path/to/manus-mcp/.venv/bin/activate && python3 /path/to/manus-mcp/mcp_server.py"
       ],
       "name": "Manus MCP",
       "description": "this plugin provides the following tools: browse_web, code_interpreter, and bash_tool",
