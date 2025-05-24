@@ -1,10 +1,20 @@
-# Manus MCP
+# Manus MCP (Enhanced Fork)
 
 <p align="center">
   <img src="meme.jpeg" alt="Manus MCP" width="50%">
 </p>
 
-A Model Context Protocol (MCP) server implementation that can browse the web, perform search queries, and execute code.
+A Model Context Protocol (MCP) server implementation that can browse the web, perform search queries, and execute code. This is an enhanced fork with improved Windows compatibility and fixed stdio transport communication.
+
+## ✨ Recent Improvements
+
+This fork includes several critical fixes and enhancements:
+
+- **Fixed MCP stdio transport communication** - Resolved JSON parsing errors in Claude Desktop
+- **Enhanced logging system** - All logs now properly redirected to avoid stdio contamination
+- **Improved Windows WSL compatibility** - Better support for Windows users via WSL
+- **Disabled telemetry output** - Prevented browser-use library from interfering with MCP protocol
+- **Comprehensive .gitignore** - Protected sensitive data like API keys and personal information
 
 ## Current Features
 
@@ -15,10 +25,42 @@ A Model Context Protocol (MCP) server implementation that can browse the web, pe
 
 ## Using with Claude for Desktop
 
-To use Manus MCP with Claude for Desktop:
+### Windows Users (WSL)
+
+For Windows users using WSL, use this configuration in your Claude Desktop config:
+
+1. Create or edit the Claude for Desktop configuration file:
+   - Windows: `%APPDATA%\AnthropicClaude\claude_desktop_config.json`
+
+2. Add the following configuration:
+   ```json
+   {
+     "mcpServers": {
+       "manus-mcp": {
+         "command": "wsl",
+         "args": [
+           "--distribution",
+           "Debian",
+           "--",
+           "bash",
+           "-c",
+           "source /mnt/l/ToolNexusMCP_plugins/manus-mcp/.venv/bin/activate && python3 /mnt/l/ToolNexusMCP_plugins/manus-mcp/mcp_server.py"
+         ],
+         "name": "Manus MCP",
+         "description": "Enhanced MCP server with web browsing, search, and code execution capabilities",
+         "disabled": false,
+         "timeout": 60,
+         "transportType": "stdio"
+       }
+     }
+   }
+   ```
+
+### macOS/Linux Users
 
 1. Create or edit the Claude for Desktop configuration file:
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Linux: `~/.config/Claude/claude_desktop_config.json`
 
 2. Add the following configuration:
    ```json
@@ -31,7 +73,9 @@ To use Manus MCP with Claude for Desktop:
            "/ABSOLUTE/PATH/TO/manus-mcp",
            "run",
            "mcp_server.py"
-         ]
+         ],
+         "name": "Manus MCP",
+         "description": "Enhanced MCP server with web browsing, search, and code execution capabilities"
        }
      }
    }
@@ -87,8 +131,14 @@ The following environment variables can be configured:
 - `SANDBOX_DIR`: Path to the sandbox directory (default: `~/manus-sandbox`)
 - `GLOBAL_TIMEOUT`: Global timeout for all operations in seconds (default: 60)
 - `BROWSER_HEADLESS`: Whether to run the browser in headless mode (default: false)
+- `CHROME_INSTANCE_PATH`: Path to Chrome executable for local browser usage
 - `GOOGLE_SEARCH_MAX_RESULTS`: Maximum number of search results to return (default: 10)
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `BROWSER_USE_TELEMETRY`: Set to 'false' to disable telemetry (automatically set in this fork)
+
+## Logging
+
+All logs are written to `~/manus-mcp-logs/manus-mcp.log` to avoid interfering with MCP's stdio transport. This ensures clean JSON communication between the server and Claude Desktop.
 
 ## Development Guide
 
@@ -109,7 +159,7 @@ The following environment variables can be configured:
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/manus-mcp.git
+   git clone https://github.com/triepod-ai/manus-mcp.git
    cd manus-mcp
    ```
 
@@ -124,12 +174,21 @@ The following environment variables can be configured:
    ```bash
    # Make sure your virtual environment is activated
    source .venv/bin/activate
-   ./run.py
-   # or
-   uvicorn app.main:app --reload
+   python3 mcp_server.py
    ```
 
-4. Visit `http://localhost:8000/docs` to see the API documentation
+### Testing the Server
+
+You can test the MCP server manually:
+
+```bash
+# Test basic startup (should produce no output)
+source .venv/bin/activate
+timeout 5s python3 mcp_server.py
+
+# Test MCP handshake
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | python3 mcp_server.py
+```
 
 ### Development Dependencies
 
@@ -139,10 +198,33 @@ To install development dependencies:
 uv pip install -e ".[dev]"
 ```
 
-### API Documentation
+## Troubleshooting
+
+### Common Issues
+
+1. **JSON parsing errors in Claude Desktop**: This fork fixes the stdio transport issues that caused these errors.
+
+2. **Browser automation fails**: Ensure you have the required browser dependencies installed.
+
+3. **Permission errors**: Make sure the sandbox directory has proper write permissions.
+
+4. **Import errors**: Ensure all dependencies are installed in the virtual environment.
+
+### Logs
+
+Check the log file for detailed error information:
+```bash
+tail -f ~/manus-mcp-logs/manus-mcp.log
+```
+
+## Original Repository
+
+This is a fork of [huyouare/manus-mcp](https://github.com/huyouare/manus-mcp) with enhancements for better compatibility and reliability.
+
+## API Documentation
 
 The API follows the [Model Context Protocol (MCP) specification](https://modelcontextprotocol.io/).
 
 ## License
 
-[MIT](LICENSE) 
+[MIT](LICENSE)

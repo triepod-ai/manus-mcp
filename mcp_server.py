@@ -4,8 +4,39 @@ import logging
 import os
 import json
 import sys
+
+# Disable browser-use telemetry before importing
+os.environ['BROWSER_USE_TELEMETRY'] = 'false'
+
+# Configure logging to write to a file instead of stdout/stderr BEFORE any imports
+log_dir = os.path.expanduser("~/manus-mcp-logs")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "manus-mcp.log")
+
+# Remove all existing handlers to prevent any output to stdout/stderr
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+# Configure logging with only file handler
+logging.basicConfig(
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(log_file, mode="a")],
+    force=True
+)
+
+# Redirect stderr to log file to prevent contamination of stdio
+# but preserve original stderr for MCP if needed
+original_stderr = sys.stderr
+stderr_log = open(log_file, 'a')
+sys.stderr = stderr_log
+
+# Don't redirect stdout as MCP needs it for JSON communication
+# Instead, ensure all logging goes to file only
+
+# Now import everything else
 from dotenv import load_dotenv
-from googlesearch import search
+from app.workarounds.googlesearch import search
 from mcp.server import FastMCP
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
@@ -15,17 +46,6 @@ from app.code_execution import interpreter, bash_command, SANDBOX_DIR
 # Load environment variables
 load_dotenv()
 
-# Configure logging to write to a file instead of stdout/stderr
-log_dir = os.path.expanduser("~/manus-mcp-logs")
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "manus-mcp.log")
-
-logging.basicConfig(
-    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    filename=log_file,
-    filemode="a"
-)
 logger = logging.getLogger("manus-mcp")
 logger.info("Starting Manus MCP server")
 
@@ -41,6 +61,22 @@ for lib_logger in ["httpx", "playwright", "asyncio"]:
     lib_log.handlers = []
     lib_log.addHandler(logging.FileHandler(log_file))
     lib_log.setLevel(logging.WARNING)
+
+# Attempt to silence Uvicorn's default stdout logging
+try:
+    uvicorn_error_logger = logging.getLogger("uvicorn.error")
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    uvicorn_error_logger.handlers = []
+    uvicorn_access_logger.handlers = []
+    from logging import NullHandler
+    uvicorn_error_logger.addHandler(NullHandler())
+    uvicorn_access_logger.addHandler(NullHandler())
+    # Optionally set levels to prevent logging even if handlers are somehow re-added
+    uvicorn_error_logger.setLevel(logging.CRITICAL + 1) 
+    uvicorn_access_logger.setLevel(logging.CRITICAL + 1)
+    logger.info("Attempted to silence Uvicorn's default stdout/stderr loggers.")
+except Exception as e:
+    logger.error(f"Failed to configure Uvicorn loggers: {e}", exc_info=True)
 
 # Google Search configuration
 GOOGLE_SEARCH_MAX_RESULTS = int(os.getenv("GOOGLE_SEARCH_MAX_RESULTS", "10"))
@@ -352,5 +388,6 @@ async def bash_tool(command: str, timeout: int = 30, background: bool = False) -
     return await bash_command(command, timeout, background)
 
 if __name__ == "__main__":
+    # Note: Removed 'sys.stdout = sys.stderr' redirection as it broke the MCP handshake.
     # Run the server with stdio transport
-    mcp.run(transport='stdio') 
+    mcp.run(transport='stdio')

@@ -32,10 +32,81 @@ ENV/
 .vscode/
 *.swp
 *.swo
+*~
 
 # OS specific files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
-*.log 
+# Logs and temporary files
+*.log
+logs/
+error_log.txt
+*.tmp
+*.temp
+
+# API keys and secrets
+.env.local
+.env.production
+.env.development
+.env.test
+secrets.json
+config.json
+claude_desktop_config.json
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Browser automation files
+browser_data/
+browser_cache/
+downloads/
+screenshots/
+
+# MCP specific
+manus-sandbox/
+~/manus-mcp-logs/
+
+# Windows specific
+*.bat
+*.cmd
+
+# Backup files
+*.bak
+*.backup
+*~
+.#*
+
+# Test files
+test_output/
+coverage/
+
+# Node.js (if any JS dependencies)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store?
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
