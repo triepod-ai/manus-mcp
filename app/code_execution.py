@@ -310,12 +310,10 @@ cd {SANDBOX_DIR}
                 "message": f"Process started in background with PID {process.pid}. Output is being logged to {log_file}"
             })
         else:
-            # For foreground processes, run normally with a timeout
-            # Parse the command
-            cmd_parts = shlex.split(command)
-            
+            # For foreground processes, run normally via a shell with a timeout
+            logger.info(f"Executing foreground command via shell: bash -c \"{command[:100]}...\"")
             process = await asyncio.create_subprocess_exec(
-                *cmd_parts,
+                'bash', '-c', command, # Execute using bash -c
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=SANDBOX_DIR
@@ -392,4 +390,4 @@ async def execute_shell(command: str) -> Dict[str, Any]:
         Dict with execution results, output, and errors
     """
     # TODO: Implement shell command execution
-    raise NotImplementedError("Shell command execution is not yet implemented.") 
+    raise NotImplementedError("Shell command execution is not yet implemented.")

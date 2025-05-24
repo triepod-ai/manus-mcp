@@ -10,6 +10,8 @@ A Model Context Protocol (MCP) server implementation that can browse the web, pe
 
 This fork includes several critical fixes and enhancements:
 
+- **Switched browse_web to ChromeBrowser** - Replaced browser-use/Playwright with Chrome DevTools Protocol for direct browser connection
+- **Chrome Debug Interface Integration** - Now connects to running Chrome instance on localhost:9222/9229 for true "headless=no" experience
 - **Fixed MCP stdio transport communication** - Resolved JSON parsing errors in Claude Desktop
 - **Enhanced logging system** - All logs now properly redirected to avoid stdio contamination
 - **Improved Windows WSL compatibility** - Better support for Windows users via WSL
@@ -44,7 +46,7 @@ For Windows users using WSL, use this configuration in your Claude Desktop confi
            "--",
            "bash",
            "-c",
-           "source /mnt/l/ToolNexusMCP_plugins/manus-mcp/.venv/bin/activate && python3 /mnt/l/ToolNexusMCP_plugins/manus-mcp/mcp_server.py"
+           "source /path/to/manus-mcp/.venv/bin/activate && python3 /path/to/manus-mcp/mcp_server.py"
          ],
          "name": "Manus MCP",
          "description": "Enhanced MCP server with web browsing, search, and code execution capabilities",
@@ -97,14 +99,17 @@ Performs Google searches and returns a list of relevant links.
 
 ### browse_web
 
-Interacts with a web browser to navigate websites and extract information. Supported actions:
-- `navigate`: Go to a specific URL
-- `click`: Click an element by index
-- `input_text`: Input text into an element
-- `get_content`: Get the page content
-- `execute_js`: Execute JavaScript code
-- `scroll`: Scroll the page
-- `refresh`: Refresh the current page
+Connects directly to your running Chrome browser via Chrome DevTools Protocol for real-time web interaction. Requires Chrome to be running with debug interface enabled (--remote-debugging-port=9222). Supported actions:
+- `navigate`: Go to a specific URL in your actual Chrome browser
+- `get_content`: Extract page content using BeautifulSoup
+- `fetch`: Fetch webpage content without navigation
+- `execute_js`: Execute JavaScript code in the browser
+- `scroll`: Scroll the page by specified amount
+
+**Setup**: Start Chrome with debug interface:
+```bash
+google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+```
 
 ### code_interpreter
 
@@ -130,11 +135,10 @@ The following environment variables can be configured:
 
 - `SANDBOX_DIR`: Path to the sandbox directory (default: `~/manus-sandbox`)
 - `GLOBAL_TIMEOUT`: Global timeout for all operations in seconds (default: 60)
-- `BROWSER_HEADLESS`: Whether to run the browser in headless mode (default: false)
-- `CHROME_INSTANCE_PATH`: Path to Chrome executable for local browser usage
+- `CHROME_MCP_HOST`: Chrome DevTools Protocol host (default: localhost)
+- `CHROME_MCP_PORT`: Chrome DevTools Protocol port (default: 9229)
 - `GOOGLE_SEARCH_MAX_RESULTS`: Maximum number of search results to return (default: 10)
 - `LOG_LEVEL`: Logging level (default: INFO)
-- `BROWSER_USE_TELEMETRY`: Set to 'false' to disable telemetry (automatically set in this fork)
 
 ## Logging
 
@@ -216,6 +220,40 @@ Check the log file for detailed error information:
 ```bash
 tail -f ~/manus-mcp-logs/manus-mcp.log
 ```
+
+## ChromeBrowser Migration
+
+The browse_web tool has been migrated from browser-use (Playwright) to a custom ChromeBrowser implementation using Chrome DevTools Protocol. This change provides several benefits:
+
+### Why We Switched
+
+1. **X Server Issues**: The original browser-use implementation required X Server/display for GUI rendering, causing failures in headless environments
+2. **True "Headless=No" Experience**: Direct connection to your actual Chrome browser provides real visual feedback
+3. **Simplified Dependencies**: Removed Playwright dependency and complex browser automation setup
+4. **Better Performance**: Direct DevTools Protocol communication is faster than browser automation layers
+
+### Technical Details
+
+- **Original**: browser-use library with Playwright backend
+- **New**: Custom ChromeBrowser class using Chrome DevTools Protocol
+- **Connection**: WebSocket connection to Chrome debug interface on port 9229
+- **Content Extraction**: BeautifulSoup for HTML parsing and content extraction
+- **Rollback Available**: Original implementation backed up in `mcp_server.py.backup`
+
+### Migration Steps Taken
+
+1. Created backup of original implementation
+2. Replaced browser-use imports with ChromeBrowser
+3. Updated environment variables from Playwright to DevTools Protocol configuration
+4. Rewrote browse_web tool function to use ChromeBrowser methods
+5. Updated tool actions to match ChromeBrowser capabilities
+6. Tested connection and navigation functionality
+
+### Files Modified
+
+- `mcp_server.py`: Main tool implementation replaced
+- `app/web_browser.py`: Fixed print statement for MCP protocol compatibility
+- `rollback_plan.md`: Updated with new rollback procedures
 
 ## Original Repository
 

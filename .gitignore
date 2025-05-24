@@ -28,6 +28,7 @@ venv/
 ENV/
 
 # IDE specific files
+.claude/
 .idea/
 .vscode/
 *.swp
@@ -93,10 +94,31 @@ manus-sandbox/
 *.backup
 *~
 .#*
+mcp_server.py.backup
+rollback_plan.md
 
 # Test files
 test_output/
 coverage/
+test_*.py
+minimal_*.py
+*_test.py
+
+# Development files
+mcp_server_modified.py
+TODO.md
+=*
+scripts/dev/
+app/workarounds/
+
+# Log files (all variations)
+*.log
+stdout.log
+stderr.log
+mcp_stdout.log
+mcp_stderr.log
+wsl_stderr.log
+error_log.txt
 
 # Node.js (if any JS dependencies)
 node_modules/

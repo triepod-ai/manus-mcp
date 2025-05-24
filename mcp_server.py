@@ -38,9 +38,7 @@ sys.stderr = stderr_log
 from dotenv import load_dotenv
 from app.workarounds.googlesearch import search
 from mcp.server import FastMCP
-from browser_use import Browser as BrowserUseBrowser
-from browser_use import BrowserConfig
-from browser_use.browser.context import BrowserContext
+from app.web_browser import ChromeBrowser, fetch_webpage, extract_content
 from app.code_execution import interpreter, bash_command, SANDBOX_DIR
 
 # Load environment variables
@@ -82,8 +80,8 @@ except Exception as e:
 GOOGLE_SEARCH_MAX_RESULTS = int(os.getenv("GOOGLE_SEARCH_MAX_RESULTS", "10"))
 
 # Browser configuration
-BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
-CHROME_INSTANCE_PATH = os.getenv("CHROME_INSTANCE_PATH", None)
+CHROME_HOST = os.getenv("CHROME_MCP_HOST", "localhost")
+CHROME_PORT = int(os.getenv("CHROME_MCP_PORT", "9229"))
 
 # Log sandbox directory
 logger.info(f"Using sandbox directory: {SANDBOX_DIR}")
@@ -97,7 +95,6 @@ mcp = FastMCP("manus-mcp")
 
 # Browser instance (will be initialized on first use)
 browser = None
-browser_context = None
 browser_lock = asyncio.Lock()
 
 # Define the manus_identity tool that will be automatically invoked at the start of each thread
@@ -189,47 +186,41 @@ async def google_search(query: str, num_results: int = None) -> List[str]:
 
 # Helper function to ensure browser is initialized
 async def ensure_browser_initialized():
-    """Ensure browser and context are initialized."""
-    global browser, browser_context
+    """Ensure browser is initialized."""
+    global browser
     
     if browser is None:
-        logger.info(f"Initializing browser (headless: {BROWSER_HEADLESS}, chrome_instance_path: {CHROME_INSTANCE_PATH})...")
-        browser_config = BrowserConfig(
-            headless=BROWSER_HEADLESS,
-            chrome_instance_path=CHROME_INSTANCE_PATH
-        )
-        browser = BrowserUseBrowser(browser_config)
+        logger.info(f"Initializing ChromeBrowser (host: {CHROME_HOST}, port: {CHROME_PORT})...")
+        browser = ChromeBrowser(chrome_host=CHROME_HOST, chrome_port=CHROME_PORT)
+        
+        # Test connection
+        if not await browser.connect():
+            logger.error(f"Failed to connect to Chrome at {CHROME_HOST}:{CHROME_PORT}")
+            raise Exception(f"Could not connect to Chrome DevTools at {CHROME_HOST}:{CHROME_PORT}. Make sure Chrome is running with --remote-debugging-port={CHROME_PORT}")
+        
+        logger.info("Successfully connected to Chrome DevTools")
     
-    if browser_context is None:
-        logger.info("Creating new browser context...")
-        browser_context = await browser.new_context()
-    
-    return browser_context
+    return browser
 
 # Define the browser tool
 @mcp.tool()
-async def browse_web(action: str, url: str = None, element_index: int = None, 
-                    text: str = None, script: str = None, 
+async def browse_web(action: str, url: str = None, script: str = None, 
                     scroll_amount: int = None) -> str:
     """
     Interact with a web browser to navigate websites and extract information.
     
-    This tool allows you to control a browser to visit websites, click elements,
-    input text, take screenshots, and more.
+    This tool connects to your running Chrome browser via DevTools Protocol,
+    providing a true headed browsing experience.
     
     Args:
         action: The browser action to perform. Options include:
             - 'navigate': Go to a specific URL
-            - 'click': Click an element by index
-            - 'input_text': Input text into an element
-            - 'get_content': Get the page content
+            - 'get_content': Get the page content and extracted text
             - 'execute_js': Execute JavaScript code
             - 'scroll': Scroll the page
-            - 'refresh': Refresh the current page
-        url: URL for 'navigate' action
-        element_index: Element index for 'click' or 'input_text' actions
-        text: Text for 'input_text' action
-        script: JavaScript code for 'execute_js' action
+            - 'fetch': Fetch webpage content (navigate + get_content)
+        url: URL for 'navigate' or 'fetch' actions
+        script: JavaScript code for 'execute_js' action  
         scroll_amount: Pixels to scroll (positive for down, negative for up)
     
     Returns:
@@ -237,80 +228,91 @@ async def browse_web(action: str, url: str = None, element_index: int = None,
     """
     async with browser_lock:
         try:
-            context = await ensure_browser_initialized()
+            browser_instance = await ensure_browser_initialized()
             
             if action == "navigate":
                 if not url:
                     return "Error: URL is required for 'navigate' action"
                 logger.info(f"Navigating to URL: {url}")
-                await context.navigate_to(url)
-                return f"Successfully navigated to {url}"
-            
-            elif action == "click":
-                if element_index is None:
-                    return "Error: Element index is required for 'click' action"
-                logger.info(f"Clicking element at index: {element_index}")
-                element = await context.get_dom_element_by_index(element_index)
-                if not element:
-                    return f"Error: Element with index {element_index} not found"
-                download_path = await context._click_element_node(element)
-                result = f"Clicked element at index {element_index}"
-                if download_path:
-                    result += f" - Downloaded file to {download_path}"
-                return result
-            
-            elif action == "input_text":
-                if element_index is None or not text:
-                    return "Error: Element index and text are required for 'input_text' action"
-                logger.info(f"Inputting text into element at index: {element_index}")
-                element = await context.get_dom_element_by_index(element_index)
-                if not element:
-                    return f"Error: Element with index {element_index} not found"
-                await context._input_text_element_node(element, text)
-                return f"Input '{text}' into element at index {element_index}"
+                result = await browser_instance.navigate(url)
+                if result["success"]:
+                    return f"Successfully navigated to {url}"
+                else:
+                    return f"Failed to navigate to {url}: {result.get('error', 'Unknown error')}"
             
             elif action == "get_content":
                 logger.info("Getting page content")
-                state = await context.get_state()
-                html = await context.get_page_html()
-                
-                # Truncate HTML to avoid overwhelming the response
-                truncated_html = html[:5000] + "..." if len(html) > 5000 else html
-                
-                # Get clickable elements
-                clickable_elements = state.element_tree.clickable_elements_to_string()
-                
-                result = {
-                    "url": state.url,
-                    "title": state.title,
-                    "content": truncated_html,
-                    "clickable_elements": clickable_elements
-                }
-                
-                return json.dumps(result, indent=2)
+                result = await browser_instance.get_content()
+                if result["success"]:
+                    html = result["html"]
+                    
+                    # Extract content using BeautifulSoup
+                    extracted = await extract_content(html)
+                    if extracted["success"]:
+                        # Truncate text to avoid overwhelming response
+                        text = extracted["text"]
+                        truncated_text = text[:3000] + "..." if len(text) > 3000 else text
+                        
+                        response = {
+                            "title": extracted["title"],
+                            "text": truncated_text,
+                            "links_count": len(extracted["links"]),
+                            "images_count": len(extracted["images"])
+                        }
+                        return json.dumps(response, indent=2)
+                    else:
+                        return f"Failed to extract content: {extracted.get('error', 'Unknown error')}"
+                else:
+                    return f"Failed to get page content: {result.get('error', 'Unknown error')}"
+            
+            elif action == "fetch":
+                if not url:
+                    return "Error: URL is required for 'fetch' action"
+                logger.info(f"Fetching webpage: {url}")
+                result = await fetch_webpage(url)
+                if result["success"]:
+                    # Truncate text to avoid overwhelming response
+                    text = result["text"]
+                    truncated_text = text[:3000] + "..." if len(text) > 3000 else text
+                    
+                    response = {
+                        "url": result["url"],
+                        "title": result["title"],
+                        "description": result["description"],
+                        "text": truncated_text
+                    }
+                    return json.dumps(response, indent=2)
+                else:
+                    return f"Failed to fetch webpage: {result.get('error', 'Unknown error')}"
             
             elif action == "execute_js":
                 if not script:
                     return "Error: Script is required for 'execute_js' action"
                 logger.info(f"Executing JavaScript: {script}")
-                result = await context.execute_javascript(script)
-                return f"JavaScript execution result: {result}"
+                response = await browser_instance._send_command("Runtime.evaluate", {
+                    "expression": script
+                })
+                
+                if "result" in response and "result" in response["result"]:
+                    return f"JavaScript execution result: {response['result']['result'].get('value', 'No return value')}"
+                elif "exceptionDetails" in response["result"]:
+                    error = response["result"]["exceptionDetails"]["exception"]["description"]
+                    return f"JavaScript execution error: {error}"
+                else:
+                    return f"JavaScript executed (no result returned)"
             
             elif action == "scroll":
                 if scroll_amount is None:
                     return "Error: Scroll amount is required for 'scroll' action"
                 logger.info(f"Scrolling page by {scroll_amount} pixels")
-                await context.execute_javascript(f"window.scrollBy(0, {scroll_amount});")
+                await browser_instance._send_command("Runtime.evaluate", {
+                    "expression": f"window.scrollBy(0, {scroll_amount});"
+                })
                 direction = "down" if scroll_amount > 0 else "up"
                 return f"Scrolled {direction} by {abs(scroll_amount)} pixels"
             
-            elif action == "refresh":
-                logger.info("Refreshing page")
-                await context.refresh_page()
-                return "Page refreshed"
-            
             else:
-                return f"Error: Unknown action '{action}'"
+                return f"Error: Unknown action '{action}'. Available actions: navigate, get_content, fetch, execute_js, scroll"
         
         except Exception as e:
             logger.error(f"Browser action '{action}' failed: {str(e)}")
